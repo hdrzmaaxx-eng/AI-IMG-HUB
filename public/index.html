@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="color-scheme" content="light" />
+<meta name="theme-color" content="#f1f2f5" />
+<meta name="description" content="AI IMG HUB · 跑在本机的 AI 生图与批量修图工具：单张生图 + 整文件夹批量修图，图片只发给你自己配置的模型接口。" />
+<title>AI IMG HUB</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111827'/%3E%3Cpath d='M9 22l5-6 3.5 4 2.5-3 3 5z' fill='%23fff'/%3E%3Ccircle cx='12' cy='11' r='2.5' fill='%23fff'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body class="app">
+<a class="skip-link" href="#singlePrompt">跳到输入框</a>
+<script nonce="%%CSP_NONCE%%">window.__APP_TOKEN__ = "%%APP_TOKEN%%";</script>
+<script nonce="%%CSP_NONCE%%">
+/* 侧栏折叠状态在解析阶段就位（默认窄屏收起，同 boot() 里的规则），
+   不然刷新时侧栏总要先展开画一帧、等接口回来再收起，肉眼可见地闪一下 */
+try {
+  var __ui = JSON.parse(localStorage.getItem('aiimghub.ui-state') || '{}') || {};
+  var __sbCollapsed = __ui.sidebarCollapsed == null ? window.innerWidth < 860 : !!__ui.sidebarCollapsed;
+  if (__sbCollapsed) document.body.classList.add('sb-collapsed');
+} catch (e) {}
+</script>
+
+<!-- ============================ 左侧栏（对话分组） ============================ -->
+<aside class="sidebar" id="sidebar">
+  <div class="sb-head">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="24" height="24"><rect width="32" height="32" rx="8" fill="currentColor"/><path d="M9 22l5-6 3.5 4 2.5-3 3 5z" fill="#fff"/><circle cx="12" cy="11" r="2.5" fill="#fff"/></svg>
+    </span>
+    <strong class="sb-title">AI IMG HUB</strong>
+    <button class="icon-btn sb-ic" id="btnSidebarToggle" type="button" title="收起侧边栏" aria-label="收起侧边栏">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/><path d="M20 5v14"/></svg>
+    </button>
+  </div>
+
+  <!-- 生图 / 批量修图：整个模式的开关放在最上边 -->
+  <div class="sb-mode">
+    <div class="mode-switch" id="modeSwitch" role="group" aria-label="切换生图 / 批量修图">
+      <button type="button" class="is-active" data-mode="single" title="生图">
+        <svg class="ms-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.6" cy="9.6" r="1.5" fill="currentColor" stroke="none"/><path d="M4.2 16.2l4.6-4.6 3 3 3.2-3.2 5 5"/></svg>
+        <span class="ms-tx">生图</span>
+      </button>
+      <button type="button" data-mode="batch" title="批量修图">
+        <svg class="ms-ic" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7.5" y="4" width="13" height="11.5" rx="2"/><path d="M16.5 19.5H6a2 2 0 01-2-2V8"/></svg>
+        <span class="ms-tx">批量</span><span id="batchDot" class="dot dot-inline" hidden></span>
+      </button>
+    </div>
+  </div>
+
+  <button class="sb-new js-new-chat" type="button" title="开启新对话">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    <span>开启新对话</span>
+  </button>
+
+  <nav class="sb-convs" id="convList" aria-label="对话记录"></nav>
+
+  <div class="sb-foot">
+    <button class="sb-foot-btn" id="btnSettings" type="button" title="设置">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2v.1a2 2 0 11-4 0v-.1A1.7 1.7 0 007.2 20l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.7 1.7 0 003.3 14H3a2 2 0 110-4h.1A1.7 1.7 0 004.4 7.2l-.1-.1a2 2 0 112.8-2.8l.1.1A1.7 1.7 0 0010 3.3V3a2 2 0 114 0v.1A1.7 1.7 0 0016.8 4.4l.1-.1a2 2 0 112.8 2.8l-.1.1A1.7 1.7 0 0020.7 10H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>
+      <span>设置</span>
+    </button>
+    <span id="connState" class="pill pill-bad" hidden>未配置 Key</span>
+  </div>
+</aside>
+
+<main class="chat-main" id="chatMain">
+<header class="topbar">
+  <div class="topbar-left">
+    <button class="icon-btn js-open-sidebar" id="btnSidebarOpen" type="button" title="展开侧边栏" aria-label="展开侧边栏">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+    </button>
+  </div>
+
+  <div class="topbar-mid" id="topbarMid">
+    <div class="model-menu" id="modelMenuTop">
+      <button class="mm-btn mm-btn-top" id="mmBtnTop" type="button" aria-haspopup="true" aria-expanded="false" title="点这里换模型">
+        <span class="mm-value" id="mmValueTop">—</span>
+        <span class="mm-caret">▾</span>
+      </button>
+      <div class="mm-pop" id="mmPopTop" hidden></div>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <button class="icon-btn js-new-chat" type="button" title="开启新对话" aria-label="开启新对话">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+    </button>
+    <button class="icon-btn" id="btnViewMode" type="button" title="切换网格视图" aria-label="切换流式 / 网格视图">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6-12h4v4h-4V4zm0 6h4v4h-4v-4zm0 6h4v4h-4v-4z"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="banner" id="connBanner" hidden>
+  <span id="connBannerText"></span>
+  <button class="btn btn-ghost btn-sm" id="btnReloadPage" type="button">刷新页面</button>
+</div>
+
+<div class="chat-body" id="chatBody">
+  <div class="chat-scroll" id="chatScroll">
+    <!-- 空对话时的问候语：和输入框一起居中（像 DeepSeek 首页），发了内容就收到底部 -->
+    <div class="chat-empty" id="chatEmpty">
+      <h1>纯牛马准备好了吗？</h1>
+      <p class="muted">美好的一天从做牛马开始。</p>
+    </div>
+    <div class="chat-list" id="chatList"></div>
+    <button class="jump-bottom" id="btnScrollBottom" type="button" hidden title="回到最新">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"/></svg>
+    </button>
+  </div>
+
+<!-- ============================ 输入框（聊天框） ============================ -->
+<div class="composer-wrap">
+  <div class="composer" id="composer" data-mode="single">
+    <div class="composer-head">
+      <button class="link link-opt" id="btnOptimize" type="button" title="把口语化的需求改写成画面描述式提示词">✦ 优化提示词</button>
+      <button class="link" id="btnPresets" type="button" title="套用现成的精修文案">预设</button>
+    </div>
+
+    <div class="preview-area" id="thumbList"></div>
+
+    <div class="prompt-row">
+      <textarea id="singlePrompt" rows="1" placeholder="描述你想要的画面…" spellcheck="false"></textarea>
+      <textarea id="batchPrompt" rows="1" hidden placeholder="描述这批图要改成什么样…" spellcheck="false"></textarea>
+      <button class="btn-send" id="btnSend" type="button" title="生成" aria-label="发送">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
+      </button>
+    </div>
+
+    <div class="composer-foot">
+      <button class="btn-add" id="btnAdd" type="button" title="添加图片 / 文件夹" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <input type="file" id="fileInput" accept="image/*" multiple hidden />
+      <div class="add-menu" id="addMenu" hidden>
+        <button type="button" data-act="images">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.6" cy="9.6" r="1.4" fill="currentColor" stroke="none"/><path d="M4.2 16.2l4.6-4.6 3 3 3.2-3.2 5 5"/></svg>
+          <span>选择图片</span><span class="am-note">生图</span>
+        </button>
+        <button type="button" data-act="folder">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+          <span>选择文件夹</span><span class="am-note">批量修图</span>
+        </button>
+      </div>
+      <div class="pills" id="pills">
+        <!-- 模型参数胶囊（比例/尺寸、分辨率、画质/思考…）由 renderParamPills() 按当前模型的参数表生成 -->
+        <span class="pills-dyn" id="pillsDyn"></span>
+        <button class="param-pill" id="pillCount" type="button"><span class="pill-label" id="pillCountLabel">数量</span><b id="valCount">1 张</b></button>
+        <button class="param-pill" id="pillOptions" type="button" title="批量选项" hidden><span class="pill-label">⚙</span></button>
+      </div>
+    </div>
+
+    <!-- —— 模型参数弹层：跟着当前模型的参数表重建 —— -->
+    <div id="paramPops"></div>
+
+    <div class="pill-pop" id="popCount" hidden>
+      <div class="pop-title" id="countPopTitle">生图数量</div>
+      <div class="seg" id="countSegSingle"></div>
+      <div class="pop-note" id="countBatchWrap" hidden>
+        <label for="batchConcurrency">同时处理几张</label>
+        <input type="number" id="batchConcurrency" min="1" max="10" step="1" value="3" />
+      </div>
+    </div>
+
+    <div class="pill-pop pill-pop-opts" id="popOptions" hidden>
+      <div class="pop-title">批量选项</div>
+
+      <div class="field">
+        <label for="batchInput">输入文件夹<span class="muted">（把文件夹拖进聊天框更省事）</span></label>
+        <div class="input-row">
+          <input type="text" id="batchInput" placeholder="D:\图片\待修图" spellcheck="false" />
+          <button class="btn btn-ghost btn-sm" id="btnScan" type="button">扫描</button>
+          <button class="btn btn-ghost btn-sm" id="btnPickInput" type="button" title="在资源管理器中打开这个文件夹">打开</button>
+        </div>
+        <input type="text" id="batchOutput" hidden value="" />
+        <p class="muted pop-note">结果统一存到 <code>输入文件夹\修图输出</code></p>
+      </div>
+
+      <div class="field" id="scanBox" hidden>
+        <div class="label-row">
+          <label>扫描到的图片</label>
+          <span class="muted" id="scanInfo"></span>
+        </div>
+        <div class="scan-grid" id="scanGrid"></div>
+      </div>
+
+      <div class="field">
+        <label>选项</label>
+        <div class="checks">
+          <label class="check"><input type="checkbox" id="optSkip" checked /> 跳过已修好的图（断点续跑）</label>
+          <label class="check"><input type="checkbox" id="optFollowRatio" checked /> 比例跟随每张原图</label>
+          <label class="check"><input type="checkbox" id="optRecursive" /> 包含子文件夹</label>
+          <label class="check"><input type="checkbox" id="optExtra" /> 包含 TIFF / HEIC / AVIF（可能失败）</label>
+          <label class="check"><input type="checkbox" id="optCsv" checked /> 输出 CSV 日志</label>
+          <label class="check" title="把每一张的请求内容与上游原始返回写到 _调试日志 文件夹，排查失败原因用"><input type="checkbox" id="optDebug" /> 保存调试日志（排查失败用）</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="pill-pop" id="popPresets" hidden>
+      <div class="pop-title">套用预设提示词</div>
+      <div class="preset-row">
+        <button class="chip" type="button" data-preset="bg-white">换纯白背景</button>
+        <button class="chip" type="button" data-preset="bg-gray">换浅灰影棚背景</button>
+        <button class="chip" type="button" data-preset="clean">去瑕提亮</button>
+        <button class="chip" type="button" data-preset="light">优化打光</button>
+      </div>
+      <div class="preset-row">
+        <button class="chip chip-strong" type="button" data-preset="pro-white">电商白底 · 完整精修</button>
+        <button class="chip chip-strong" type="button" data-preset="pro-scene">场景氛围 · 完整精修</button>
+        <button class="chip chip-strong" type="button" data-preset="pro-retouch">去瑕+调色 · 完整精修</button>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+</main>
+
+<!-- ============================ 设置弹窗 ============================ -->
+<div class="modal-mask" id="settingsMask" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>设置</h2>
+      <button class="icon-btn" id="btnCloseSettings" title="关闭">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="field">
+        <label for="cfgProvider">接口来源</label>
+        <select id="cfgProvider"></select>
+        <small class="muted" id="providerHint"></small>
+      </div>
+
+      <div class="field">
+        <label for="cfgProtocol">调用协议</label>
+        <select id="cfgProtocol"></select>
+        <small class="muted" id="protocolHint"></small>
+      </div>
+
+      <div class="field">
+        <label for="cfgModel">模型</label>
+        <input type="text" id="cfgModel" spellcheck="false" list="modelOptions" placeholder="banana-2" />
+        <datalist id="modelOptions"></datalist>
+        <small class="muted" id="modelHint">可直接输入模型名，也可以从下拉里选。</small>
+      </div>
+
+      <div class="field">
+        <label for="cfgApiKey">API Key</label>
+        <div class="input-row">
+          <input type="password" id="cfgApiKey" spellcheck="false" placeholder="sk-..." autocomplete="off" />
+          <button class="btn btn-ghost" id="btnToggleKey" type="button">显示</button>
+        </div>
+        <small class="muted" id="keyHint"></small>
+      </div>
+
+      <div class="field">
+        <label for="cfgBaseUrl">接口地址（Base URL）</label>
+        <div class="input-row">
+          <input type="text" id="cfgBaseUrl" spellcheck="false" placeholder="https://api.lk888.ai" />
+          <button class="btn btn-ghost" id="btnResetBaseUrl" type="button">默认</button>
+        </div>
+        <small class="muted" id="baseUrlHint"></small>
+      </div>
+
+      <div class="grid-2">
+        <div class="field">
+          <label for="cfgOptimizerModel">提示词优化模型</label>
+          <input type="text" id="cfgOptimizerModel" spellcheck="false" placeholder="gem-3.8-flash" />
+          <small class="muted">点「✦ 优化提示词」时调用的文本模型</small>
+        </div>
+        <div class="field">
+          <label for="cfgOptimizerProtocol">优化模型协议</label>
+          <select id="cfgOptimizerProtocol">
+            <option value="auto">自动（先试 OpenAI，不合适再试 Gemini）</option>
+            <option value="openai">OpenAI 兼容 · /v1/chat/completions</option>
+            <option value="gemini">Gemini 兼容 · :generateContent</option>
+          </select>
+        </div>
+      </div>
+
+      <details class="adv">
+        <summary>高级参数</summary>
+        <div class="adv-body">
+          <div class="grid-2">
+            <div class="field">
+              <label for="cfgGeminiPath">Gemini 路径模板</label>
+              <input type="text" id="cfgGeminiPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgAuthStyle">鉴权方式</label>
+              <select id="cfgAuthStyle">
+                <option value="both">两种都带（兼容性最好）</option>
+                <option value="goog">仅 x-goog-api-key</option>
+                <option value="bearer">仅 Authorization: Bearer</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="cfgTimeout">单张超时（秒）</label>
+              <input type="number" id="cfgTimeout" min="20" max="900" step="10" />
+            </div>
+            <div class="field">
+              <label for="cfgRetries">失败重试次数</label>
+              <input type="number" id="cfgRetries" min="0" max="5" step="1" />
+            </div>
+            <div class="field">
+              <label for="cfgOpenaiPath">OpenAI 生成路径</label>
+              <input type="text" id="cfgOpenaiPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgOpenaiEditPath">OpenAI 编辑路径</label>
+              <input type="text" id="cfgOpenaiEditPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgMediaPath">媒体生成路径</label>
+              <input type="text" id="cfgMediaPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgMediaStatusPath">媒体任务查询路径</label>
+              <input type="text" id="cfgMediaStatusPath" spellcheck="false" placeholder="/v1/skills/task-status" />
+            </div>
+            <div class="field">
+              <label for="cfgAlapiPath">ALAPI 同步路径</label>
+              <input type="text" id="cfgAlapiPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgAlapiAsyncPath">ALAPI 异步提交路径</label>
+              <input type="text" id="cfgAlapiAsyncPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgAlapiTaskPath">ALAPI 任务查询路径</label>
+              <input type="text" id="cfgAlapiTaskPath" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label for="cfgOptimizerBaseUrl">优化模型专用地址</label>
+              <input type="text" id="cfgOptimizerBaseUrl" spellcheck="false" placeholder="留空 = 跟随聚合引擎地址" />
+            </div>
+            <div class="field">
+              <label for="cfgPollInterval">异步轮询间隔（秒）</label>
+              <input type="number" id="cfgPollInterval" min="1" max="30" step="1" />
+            </div>
+            <div class="field">
+              <label for="cfgTaskTimeout">异步任务总时限（秒）</label>
+              <input type="number" id="cfgTaskTimeout" min="60" max="7200" step="30" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="cfgImageFirst">参考图在请求中的位置</label>
+            <select id="cfgImageFirst">
+              <option value="1">图片在前，文字在后（Google 官方编辑示例，推荐）</option>
+              <option value="0">文字在前，图片在后</option>
+            </select>
+            <small class="muted">如果生成结果和原图明显对不上，可以把这里换成另一种试试</small>
+          </div>
+          <div class="field">
+            <label for="cfgSuffix">输出文件名后缀</label>
+            <input type="text" id="cfgSuffix" spellcheck="false" placeholder="_修图" />
+          </div>
+        </div>
+      </details>
+
+      <div class="test-box" id="testBox" hidden></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-ghost" id="btnTest" type="button">测试连接</button>
+      <button class="btn btn-ghost btn-link" id="btnOpenAgg" type="button" title="打开聚合 API 控制台（https://jc.lk888.ai）">聚合API ↗</button>
+      <button class="btn btn-ghost btn-link" id="btnOpenAlapi" type="button" title="打开 ALAPI 官网（https://www.alapi.cn）">ALAPI ↗</button>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="btnCancelSettings" type="button">取消</button>
+      <button class="btn btn-primary" id="btnSaveSettings" type="button">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ 提示词优化 ============================ -->
+<div class="modal-mask" id="optMask" hidden>
+  <div class="modal modal-lg" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2>优化提示词</h2>
+      <button class="icon-btn" id="btnOptClose" title="关闭">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="opt-task">
+        <span class="muted">任务类型</span>
+        <div class="mode-switch" id="optTask" role="group" aria-label="切换提示词优化的任务类型">
+          <button type="button" data-task="t2i">文生图</button>
+          <button type="button" data-task="i2i">图生图</button>
+          <button type="button" data-task="batch">批量修图</button>
+        </div>
+        <span class="muted" id="optTaskHint"></span>
+      </div>
+      <div class="opt-meta" id="optMeta"></div>
+      <div class="opt-cols">
+        <div class="opt-col">
+          <div class="opt-col-head">原文 <span class="muted" id="optOrigLen"></span> <span class="muted">（可直接编辑）</span></div>
+          <textarea id="optOrigText" rows="14" spellcheck="false" placeholder="在这里写下或粘贴原始需求；留空让模型给一段通用的也行"></textarea>
+        </div>
+        <div class="opt-col">
+          <div class="opt-col-head">优化后 <span class="muted" id="optNewLen"></span> <span class="muted">（可直接编辑）</span></div>
+          <textarea id="optNewText" rows="14" spellcheck="false" placeholder="点「开始优化」生成，也可以直接手写"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <span class="muted" id="optFoot"></span>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="btnOptCancel" type="button">取消</button>
+      <button class="btn btn-ghost" id="btnOptStart" type="button">开始优化</button>
+      <button class="btn btn-primary" id="btnOptApply" type="button" disabled>采用</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ 图片查看器 ============================ -->
+<div class="viewer-mask" id="imageViewer" hidden>
+  <div class="viewer-stage" id="viewerStage">
+    <img id="viewerImg" src="" alt="预览" draggable="false" />
+  </div>
+  <button class="viewer-nav viewer-prev" id="viewerPrev" type="button" title="上一张">‹</button>
+  <button class="viewer-nav viewer-next" id="viewerNext" type="button" title="下一张">›</button>
+  <button class="viewer-close" id="viewerClose" type="button" title="关闭">×</button>
+  <div class="viewer-bar">
+    <span class="viewer-name" id="viewerName"></span>
+    <span class="viewer-zoom" id="viewerZoom">100%</span>
+    <button class="viewer-btn" id="viewerZoomOut" type="button" title="缩小">−</button>
+    <button class="viewer-btn" id="viewerZoomIn" type="button" title="放大">＋</button>
+    <button class="viewer-btn" id="viewerReset" type="button" title="重置">1:1</button>
+    <a class="viewer-btn" id="viewerDownload" download title="下载这张">下载</a>
+    <button class="viewer-btn" id="viewerAnnotate" type="button" title="在图上标注，标注后作为参考图">标注</button>
+  </div>
+</div>
+
+<!-- ============================ 涂鸦 / 标注 ============================ -->
+<div class="doodle-mask" id="doodleMask" hidden>
+  <div class="doodle-toolbar">
+    <button type="button" id="toolBrush" class="is-active" data-tool="brush">画笔</button>
+    <button type="button" id="toolRect" data-tool="rect">矩形</button>
+    <button type="button" id="toolText" data-tool="text">文字</button>
+    <label class="doodle-opt" id="rectFillWrap" hidden><input type="checkbox" id="doodleFill" /> 实心</label>
+    <span class="doodle-opt">颜色<input type="color" id="doodleColor" value="#ff0000" /></span>
+    <span class="doodle-opt">粗细<input type="range" id="doodleSize" min="1" max="30" value="5" /></span>
+    <span class="doodle-opt">透明<input type="range" id="doodleOpacity" min="0.1" max="1" step="0.1" value="1" /></span>
+    <span class="doodle-opt doodle-zoom" title="滚轮在画布上也能缩放；按住空格拖拽可平移">
+      <button type="button" id="doodleZoomOut" class="dz-btn" aria-label="缩小">−</button>
+      <b id="doodleZoomTxt">100%</b>
+      <button type="button" id="doodleZoomIn" class="dz-btn" aria-label="放大">＋</button>
+      <button type="button" id="doodleZoomFit" class="dz-btn" title="缩放到刚好铺满窗口">适应</button>
+    </span>
+    <div class="spacer"></div>
+    <button type="button" id="doodleUndo">撤销</button>
+    <button type="button" id="doodleClear">清空</button>
+    <button type="button" id="doodleCancel">取消</button>
+    <button type="button" class="btn btn-primary btn-sm" id="doodleSave">完成</button>
+  </div>
+  <div class="doodle-stage" id="doodleStage">
+    <canvas id="doodleCanvas"></canvas>
+    <!-- 拉矩形时只动这一层，不碰画布（碰画布就要整张重画，会卡） -->
+    <div class="doodle-rect" id="doodleRect" hidden></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="/prompt-presets.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# 默认按文本处理，仓库内统一存 LF，检出时按平台还原
+* text=auto
+
+# Windows 脚本必须保持 CRLF，否则双击可能不执行
+*.bat text eol=crlf
+*.vbs text eol=crlf
+
+# 二进制，别做任何换行转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
