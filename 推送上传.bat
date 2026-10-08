@@ -1,11 +1,11 @@
-﻿@echo off
+@echo off
 setlocal EnableDelayedExpansion
-chcp 65001 >nul
+chcp 936 >nul
 cd /d "%~dp0"
 
 rem ============================================================
-rem  把本机的改动提交并上传到 GitHub
-rem  records\ 与 config.json 已写进 .gitignore，不会被上传
+rem  �ѱ����ĸĶ��ύ���ϴ��� GitHub
+rem  records\ �� config.json ��д�� .gitignore�����ᱻ�ϴ�
 rem ============================================================
 
 set "REPO_URL=https://github.com/hdrzmaaxx-eng/AI-IMG-HUB.git"
@@ -13,7 +13,7 @@ set "BRANCH=main"
 
 echo.
 echo   ==========================================
-echo     AI IMG HUB  -  上传到云端
+echo     AI IMG HUB  -  �ϴ����ƶ�
 echo   ==========================================
 echo.
 
@@ -25,8 +25,8 @@ if not defined GIT if exist "%LOCALAPPDATA%\Programs\Git\cmd\git.exe" set "GIT=%
 if not defined GIT if exist "%USERPROFILE%\scoop\apps\git\current\cmd\git.exe" set "GIT=%USERPROFILE%\scoop\apps\git\current\cmd\git.exe"
 
 if not defined GIT (
-  echo   [错误] 没找到 Git。
-  echo   请先安装 Git for Windows：https://git-scm.com/download/win
+  echo   [����] û�ҵ� Git��
+  echo   ���Ȱ�װ Git for Windows��https://git-scm.com/download/win
   echo.
   pause
   exit /b 1
@@ -34,7 +34,7 @@ if not defined GIT (
 
 "%GIT%" rev-parse --git-dir >nul 2>&1
 if errorlevel 1 (
-  echo   这个文件夹还不是仓库，正在初始化…
+  echo   ����ļ��л����ǲֿ⣬���ڳ�ʼ����
   "%GIT%" init -b %BRANCH% >nul 2>&1
 )
 
@@ -42,33 +42,33 @@ if errorlevel 1 (
 if errorlevel 1 "%GIT%" remote add origin "%REPO_URL%" >nul 2>&1
 
 echo.
-echo   本次将要上传的改动：
+echo   ���ν�Ҫ�ϴ��ĸĶ���
 "%GIT%" -c core.quotepath=false add -A
 "%GIT%" -c core.quotepath=false status --short
 echo.
 
 "%GIT%" diff --cached --quiet >nul 2>&1
 if not errorlevel 1 (
-  echo   没有任何改动，仓库里已经是最新的。
+  echo   û���κθĶ����ֿ����Ѿ������µġ�
   goto :push
 )
 
 set "MSG="
-set /p MSG=  填写提交说明，直接回车用默认：
-if "!MSG!"=="" set "MSG=更新 %DATE% %TIME%"
+set /p MSG=  ��д�ύ˵����ֱ�ӻس���Ĭ�ϣ�
+if "!MSG!"=="" set "MSG=���� %DATE% %TIME%"
 
 "%GIT%" commit -m "!MSG!"
 if errorlevel 1 goto :fail
 
 :push
 echo.
-echo   正在上传到云端…
+echo   �����ϴ����ƶˡ�
 "%GIT%" push -u origin %BRANCH%
 if errorlevel 1 goto :fail
 
 echo.
 echo   ---------------------------------------------------
-echo   上传完成。另一台电脑双击  下载拉取.bat  就能拿到。
+echo   �ϴ���ɡ���һ̨����˫��  ������ȡ.bat  �����õ���
 echo   ---------------------------------------------------
 echo.
 pause
@@ -78,9 +78,9 @@ exit /b 0
 :fail
 echo.
 echo   ---------------------------------------------------
-echo   [错误] 上传失败，请看上面的 git 输出。
-echo   如果提示认证失败，说明令牌缺失或已过期，
-echo   去这里重新生成一个，勾选 repo 权限：
+echo   [����] �ϴ�ʧ�ܣ��뿴����� git �����
+echo   �����ʾ��֤ʧ�ܣ�˵������ȱʧ���ѹ��ڣ�
+echo   ȥ������������һ������ѡ repo Ȩ�ޣ�
 echo   https://github.com/settings/tokens
 echo   ---------------------------------------------------
 echo.
